@@ -64,7 +64,7 @@ internal class NetworkLayer {
     ///              stored Network Key may be invalid. Therefore, it may be, that the
     ///              key with this index is no longer stored on the connected Node
     ///              and the Proxy Configuration messages will not work.
-    internal var proxyNetworkKey: NetworkKey?
+    private var proxyNetworkKey: NetworkKey?
     
     init(_ networkManager: NetworkManager) {
         self.networkManager = networkManager
@@ -145,31 +145,44 @@ internal class NetworkLayer {
     ///           is not set, or has failed to send the PDU.
     func send(lowerTransportPdu pdu: LowerTransportPdu, ofType type: PduType,
               withTtl ttl: UInt8) throws {
+        print("BY TAK: 1000")
         guard let networkManager = networkManager,
               let transmitter = networkManager.transmitter else {
             throw BearerError.bearerClosed
         }
+        print("BY TAK: 1001")
         
         let sequence: UInt32 = (pdu as? AccessMessage)?.sequence ?? nextSequenceNumber(for: pdu.source)
+        print("BY TAK: 1002")
         let networkPdu = NetworkPdu(encode: pdu, ofType: type, withSequence: sequence, andTtl: ttl)
-        logger?.i(.network, "Sending \(networkPdu) encrypted using \(networkPdu.networkKey)")
+        print("BY TAK: 1003")
+        logger?.i(.network, "Sending123 \(networkPdu) encrypted using \(networkPdu.networkKey)")
         // Loopback interface.
         if shouldLoopback(networkPdu) {
+            print("BY TAK: 35")
             handle(incomingPdu: networkPdu.pdu, ofType: type)
+            print("BY TAK: 10000")
             // Messages sent with TTL = 1 will only be sent locally.
             guard ttl != 1 else { return }
+            print("BY TAK: 10001")
             if isLocalUnicastAddress(networkPdu.destination) {
+                print("BY TAK: 10002")
                 // No need to send messages targeting local Unicast Addresses.
                 return
             }
+            print("BY TAK: 10003")
             // If the message was sent locally, don't report Bearer closer error.
             try? transmitter.send(networkPdu.pdu, ofType: type)
         } else {
+            print("BY TAK: 1004")
             // Messages sent with TTL = 1 may only be sent locally.
             guard ttl != 1 else { return }
+            print("BY TAK: 10004")
             do {
+                print("BY TAK: 37 \(networkPdu.pdu) \(type)")
                 try transmitter.send(networkPdu.pdu, ofType: type)
             } catch {
+                print("BY TAK: 10005")
                 if case BearerError.bearerClosed = error {
                     proxyNetworkKey = nil
                 }
@@ -190,6 +203,7 @@ internal class NetworkLayer {
                     timer.invalidate()
                     return
                 }
+                print("BY TAK: 38")
                 try? networkManager.transmitter?.send(networkPdu.pdu, ofType: type)
                 count -= 1
                 if count == 0 {
@@ -217,19 +231,25 @@ internal class NetworkLayer {
         // to configure the Proxy Server. This allows sniffing the network without
         // an option to send messages.
         let source = meshNetwork.localProvisioner?.node?.primaryUnicastAddress ?? Address.maxUnicastAddress
-        logger?.i(.proxy, "Sending \(message) from: \(source.hex) to: 0000")
+        logger?.i(.proxy, "Sending123 \(message) from: \(source.hex) to: 0000")
         let pdu = ControlMessage(fromProxyConfigurationMessage: message,
                                  sentFrom: source, usingNetworkKey: networkKey,
                                  andIvIndex: meshNetwork.ivIndex)
-        logger?.i(.network, "Sending \(pdu)")
+        logger?.i(.network, "Sending123 \(pdu)")
         do {
+            print("BY TAK: 1005")
             try send(lowerTransportPdu: pdu, ofType: .proxyConfiguration, withTtl: pdu.ttl)
+            print("BY TAK: 1006")
             networkManager.proxy?.managerDidDeliverMessage(message)
+            print("BY TAK: 1007")
         } catch {
+            print("BY TAK: 1008")
             if case BearerError.bearerClosed = error {
                 proxyNetworkKey = nil
             }
+            print("BY TAK: 1009")
             networkManager.proxy?.managerFailedToDeliverMessage(message, error: error)
+            print("BY TAK: 1010")
         }
     }
     
@@ -421,7 +441,7 @@ private extension NetworkLayer {
            let message = MessageType.init(parameters: controlMessage.upperTransportPdu) {
             logger?.i(.proxy, "\(message) received from: \(proxyPdu.source.hex) to: \(proxyPdu.destination.hex)")
             // Look for the proxy Node.
-            let proxyNode = meshNetwork.node(withAddress: proxyPdu.source) ?? UnknownNode(from: proxyPdu, in: meshNetwork)
+            let proxyNode = meshNetwork.node(withAddress: proxyPdu.source)
             networkManager.proxy?.handle(message, sentFrom: proxyNode)
         } else {
             logger?.w(.proxy, "Unsupported proxy configuration message (opcode: \(controlMessage.opCode))")
